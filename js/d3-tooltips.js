@@ -5,7 +5,7 @@
 	v1.1
 		- Added support for follower skills
 */
-
+	
 if(typeof Bnet == 'undefined') var Bnet = {};
 if(typeof Bnet.D3 == 'undefined') Bnet.D3 = {};
 
@@ -119,6 +119,11 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 			var al = replaceAll(' ','-',decodeURI(params.item));
 			al = replaceAll('\'','',al);
 			a.setAttribute("data-d3tooltip",al);
+			if (params.stats) {
+				var al = replaceAll(' ','-',decodeURI(params.stats));
+				al = replaceAll('\'','',al);
+				a.setAttribute("data-d3stats",al)
+			}
 			linkMouseOver(1,a);
 		}
 	}
@@ -163,6 +168,7 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 	function parseParams(val) {
 	    var queryDict = {}
 		location.search.substr(1).split("&").forEach(function(item) {queryDict[item.split("=")[0]] = item.split("=")[1]});
+		console.log(queryDict);
 		return queryDict;
 	}
 
@@ -219,6 +225,12 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 	function parseUrl(link, params) {
 
 		var d3tooltip = link.getAttribute('data-d3tooltip');
+		var d3stats = link.getAttribute('data-d3stats');
+
+		if ('undefined' != typeof d3stats) {
+			params.stats = d3stats;	
+		}
+
 		if ('undefined' != typeof d3tooltip && d3tooltip) {
 			params.region = 'us';
 			params.locale = 'en';
@@ -278,7 +290,6 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 	}
 
 	function requestTooltip(params) {
-
 		var url = (URL_QUERY_BASE + params.tooltipType.url)
 			.replace('{region}', params.region)
 			.replace('{locale}', params.locale)
@@ -380,11 +391,16 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 		var mediaPrefixSmall = "http://media.blizzard.com/d3/icons/items/small/";
 
 		this.Get = function(data) {
-			console.dir(data);
-
-			var type = data.tooltipParams.substring(0, data.tooltipParams.indexOf('/'));
-			var name = data.tooltipParams.substring(data.tooltipParams.indexOf('/')+1, data.tooltipParams.length+1);
-			return "Bnet.D3.Tooltips.registerData({ params: { region: 'us', locale: 'en', type: '" + type + "', key: '" + name + "'}, tooltipHtml: '" + this.Construct(data) + "'});"
+			//0 means request returned 404 or similar
+			if (data != 0) {
+				console.dir(data);
+				var type = data.tooltipParams.substring(0, data.tooltipParams.indexOf('/'));
+				var name = data.tooltipParams.substring(data.tooltipParams.indexOf('/')+1, data.tooltipParams.length+1);
+				return "Bnet.D3.Tooltips.registerData({ params: { region: 'us', locale: 'en', type: '" + type + "', key: '" + name + "'}, tooltipHtml: '" + this.Construct(data) + "'});"
+			} else {
+				console.log('request returned 404');
+				return false;
+			}
 		}
 
 		this.Construct = function(data) {
@@ -392,150 +408,205 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 			div(1,["d3-tooltip-wrapper"]);
 				div(1,["d3-tooltip-wrapper-inner"]);
 					div(1,["d3-tooltip","d3-tooltip-item"]);
-						div(1,["tooltip-head","tooltip-head-"+data.displayColor]);
-							h3(1,["d3-color-"+data.displayColor]);
-								html += data.name.replace("'","&#39;");
-							h3(0);
-						div(0);
-						div(1,["tooltip-body","effect-bg","effect-bg-" + isArmor(data) ? "armor" : "weapon","effect-bg-" + isArmor(data) ? "armor" : "weapon" + "-" + getIconSize(data.type.id.toLowerCase())]);
-							span(1,["d3-icon","d3-icon-item","d3-icon-item-large","d3-icon-item-"+data.displayColor]);
-							span(1,["icon-item-gradient"]);
-							span(1,["icon-item-inner","icon-item-"+getIconSize(data.type.id.toLowerCase())],["background-image: url("+mediaPrefixLarge+data.icon+".png)"]);
-							span(0);
-							span(0);
-							span(0);
-							div(1,["d3-item-properties"]);
-								ul(1,["item-type-right"]);
-									li(1,["item-slot"]);
-										var slot = getSlot(data.slots);
-										if (slot == "-Hand") {
-											html += data.type.twoHanded ? "2"+slot : "1"+slot;
-										} else {
-											html += slot;
-										}
-									li(0);
-								ul(0);
-								ul(1,["item-type"]);
-									li(1);
-										span(1,["d3-color-"+data.displayColor]);
-											html += data.typeName;
-										span(0);
-									li(0);
-								ul(0);
-								if (data.armor || data.dps) {
-									var node = data.armor || data.dps;
-									ul(1,["item-armor-weapon","item-armor-armor"]);
-										li(1,["big"]);
-											p(1);
-												span(1,["value"]);
-													var dps = (Math.round(node.min * 10) / 10).toString()
-													html += dps.length == 3 ? dps + "0" : dps;
-												span(0);
-											p(0);
-										li(0);
-										li(1);
-											html += data.armor ? "Armor" : "Damage Per Second";
-										li(0);
-									ul(0);
+						var ancient = data.typeName.toLowerCase().indexOf('ancient') > -1;
+						div(1, ["d3-tooltip-item-wrapper", ancient ? "d3-tooltip-item-wrapper-AncientLegendary" : ""]);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-left"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-right"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-top"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-bottom"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-top-left"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-top-right"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-bottom-left"]);div(0);
+							div(1, ["d3-tooltip-item-border", "d3-tooltip-item-border-bottom-right"]);div(0);
 
-									if (data.dps) {
-										ul(1,["item-armor-weapon","item-weapon-damage"]);
-											li(1);
-												p(1);
-													span(1,["value"]);
-														html += Math.round(data.minDamage.min);
-													span(0);
-													html += "–";
-													span(1,["value"]);
-														html += Math.round(data.maxDamage.max);
-													span(0);
-													span(1,["d3-color-FF888888"]);
-														html += " Damage";
-													span(0);
-												p(0);
-											li(0);
-											li(1);
-												p(1);
-													span(1,["value"]);
-														var aps = (Math.round(data.attacksPerSecond.min * 100) / 100).toString();
-														html += aps.length == 3 ? aps + "0" : aps ;
-													span(0);
-													span(1,["d3-color-FF888888"]);
-														html += " Attacks Per Second";
-													span(0);
-												p(0);
-											li(0);
-										ul(0);										
-									}
-								}
+							div(1,["tooltip-head","tooltip-head-"+data.displayColor]);
+								h3(1,["d3-color-"+data.displayColor]);
+									html += data.name.replace("'","&#39;");
+								h3(0);
+							div(0);
 
-								div(1,["item-before-effects"]);
-								div(0);
+							var class1 = "effect-bg-" + (isArmor(data) ? "armor" : "weapon");
+							var class2 = "effect-bg-" + (isArmor(data) ? "armor" : "weapon" + "-" + getIconSize(data.type.id.toLowerCase()));
+							var class3 = !isArmor(data) && data.elementalType ? "effect-bg-"+data.elementalType : "";
 
-								ul(1,["item-effects"]);
-									parseAttributes(data.attributes.primary,"Primary");
-									parseAttributes(data.attributes.secondary,"Secondary");
-									parseAttributes(data.attributes.passive,"Passive");
-								ul(0);
-
-								if (data.set) {
-									ul(1,["item-itemset"]);
-										li(1,["item-itemset-name"]);
-											span(1,["d3-color-green"]);
-												html += data.set.name;
-											span(0);
-										li(0);
-										for (var item in data.set.items) {
-											li(1,["item-itemset-piece","indent"]);
-												data.tooltipParams == data.set.items[item].tooltipParams ? span(1,["d3-color-white"]) : span(1,["d3-color-gray"]);
-												//span(1,["d3-color-"+data.set.items[item].displayColor]);
-													html += data.set.items[item].name;
-												span(0);
-											li(0);
-										}
-										for (var rank in data.set.ranks) {
-											li(1,["item-itemset-bonus-amount","d3-color-gray"]);
-											//li(1,["item-itemset-bonus-amount","d3-color-"+data.set.ranks[rank].attributes.passive[0].color]);
-												html += "("; 
-												span(1,["value"]);
-													html += data.set.ranks[rank].required;
-												span(0);
-												html += ") Set:"
-											li(0);
-											parseSetAttributes(data.set.ranks[rank].attributes.primary);
-											parseSetAttributes(data.set.ranks[rank].attributes.secondary);
-											parseSetAttributes(data.set.ranks[rank].attributes.passive);
-										}
-									ul(0);
-								}
-
-								if (data.requiredLevel || data.accountBound) {
-									ul(1,["item-extras"]);
-									if (data.requiredLevel) {
-										li(1,["item-reqlevel"]);
-											span(1,["d3-color-gold"]);
-												html += "Required level: ";
-											span(0);
-											span(1,["value"]);
-												html += data.requiredLevel;
-											span(0);
-										li(0);
-									}
-									if (data.accountBound) {
-										li(1);
-											html += "Account Bound";
-										li(0);
-									}
-									ul(0);
-								}
-								if (data.displayColor == "orange" || data.displayColor == "green") {
-									span(1,["item-unique-equipped"]);
-										html += "Unique Equipped";
-									span(0);		
-								}
-								span(1,["clear"]);
-									html += "<!-- -->";
+							div(1,["tooltip-body","effect-bg",class1,class2,class3]);
+								span(1,["d3-icon","d3-icon-item","d3-icon-item-large","d3-icon-item-"+data.displayColor]);
+								span(1,["icon-item-gradient"]);
+								span(1,["icon-item-inner","icon-item-"+getIconSize(data.type.id.toLowerCase())],["background-image: url("+mediaPrefixLarge+data.icon+".png)"]);
 								span(0);
+								span(0);
+								span(0);
+								div(1,["d3-item-properties"]);
+									ul(1,["item-type-right"]);
+										li(1,["item-slot"]);
+											var slot = getSlot(data.slots);
+											if (slot == "-Hand") {
+												html += data.type.twoHanded ? "2"+slot : "1"+slot;
+											} else {
+												html += slot;
+											}
+										li(0);
+									ul(0);
+									ul(1,["item-type"]);
+										li(1);
+											span(1,["d3-color-"+data.displayColor]);
+												html += data.typeName;
+											span(0);
+										li(0);
+									ul(0);
+									if (data.armor || data.dps) {
+										var node = data.armor || data.dps;
+										ul(1,["item-armor-weapon","item-armor-armor"]);
+											li(1,["big"]);
+												p(1);
+													span(1,["value"]);
+														var dps = (Math.round(node.min * 10) / 10).toString();
+														html += dps.length == 3 && data.dps ? dps + "0" : dps;
+													span(0);
+												p(0);
+											li(0);
+											li(1);
+												html += data.armor ? "Armor" : "Damage Per Second";
+											li(0);
+										ul(0);
+
+										if (data.dps) {
+											ul(1,["item-armor-weapon","item-weapon-damage"]);
+												li(1);
+													p(1);
+														var min = data.damageRange.split('–')[0];
+														var max = data.damageRange.split('–')[1].split(' ')[0];
+														span(1,["value"]);
+															html += min;
+														span(0);
+														html += "–";
+														span(1,["value"]);
+															html += max;
+														span(0);
+														span(1,["d3-color-FF888888"]);
+															html += " Damage";
+														span(0);
+													p(0);
+												li(0);
+												li(1);
+													p(1);
+														span(1,["value"]);
+															var aps = (Math.round(data.attacksPerSecond.min * 100) / 100).toString();
+															html += aps.length == 3 ? aps + "0" : aps ;
+														span(0);
+														span(1,["d3-color-FF888888"]);
+															html += " Attacks Per Second";
+														span(0);
+													p(0);
+												li(0);
+											ul(0);										
+										}
+									}
+
+									div(1,["item-before-effects"]);
+									div(0);
+
+									ul(1,["item-effects"]);
+										parseAttributes(data.attributes.primary,"Primary");
+										parseAttributes(data.attributes.secondary,"Secondary");
+										parseAttributes(data.attributes.passive,"Passive");
+										parseGems(data.gems);
+
+										if (data.bonusAffixes) {
+											br();
+											li(1,["d3-color-blue"]);
+												span(1,["value"]);
+													html += "+"+data.bonusAffixes;
+												span(0);
+												html += " Random Magic Properties";
+											li(0);
+										}
+
+										if (data.transmogItem) {
+											p(1, ["item-property-category", "d3-color-blue"])
+												html += "Transmogrification:"
+											p(0);
+											li(1, ["value", "d3-color-orange"]);
+												html += data.transmogItem.name;
+											li(0);
+										}
+									ul(0);
+
+									if (data.set) {
+										ul(1,["item-itemset"]);
+											li(1,["item-itemset-name"]);
+												span(1,["d3-color-green"]);
+													html += replaceAll('\'', '\\\'', data.set.name);
+												span(0);
+											li(0);
+											for (var item in data.set.items) {
+												li(1,["item-itemset-piece","indent"]);
+													data.setItemsEquipped.indexOf(data.set.items[item].id) > -1 ? span(1,["d3-color-white"]) : span(1,["d3-color-gray"]);
+													//span(1,["d3-color-"+data.set.items[item].displayColor]);
+														html += replaceAll('\'', '\\\'', data.set.items[item].name);
+													span(0);
+												li(0);
+											}
+											for (var rank in data.set.ranks) {
+												var numSetItemsEquipped = data.setItemsEquipped.length;
+												var color = numSetItemsEquipped >= data.set.ranks[rank].required ? "d3-color-green" : "d3-color-white";
+												li(1,["item-itemset-bonus-amount",color]);
+													html += "("; 
+													span(1,["value"]);
+														html += data.set.ranks[rank].required;
+													span(0);
+													html += ") Set:"
+												li(0);
+												parseSetAttributes(data.set.ranks[rank].attributes.primary,color);
+												parseSetAttributes(data.set.ranks[rank].attributes.secondary,color);
+												parseSetAttributes(data.set.ranks[rank].attributes.passive,color);
+											}
+										ul(0);
+									}
+
+									if (data.requiredLevel || data.accountBound) {
+										ul(1,["item-extras"]);
+										if (data.requiredLevel) {
+											li(1,["item-reqlevel"]);
+												span(1,["d3-color-gold"]);
+													html += "Required level: ";
+												span(0);
+												span(1,["value"]);
+													html += data.requiredLevel;
+												span(0);
+											li(0);
+										}
+										if (data.accountBound) {
+											li(1);
+												html += "Account Bound";
+											li(0);
+										}
+										ul(0);
+									}
+									if (data.displayColor == "orange" || data.displayColor == "green") {
+										span(1,["item-unique-equipped"]);
+											html += "Unique Equipped";
+										span(0);		
+									}
+									if (data.craftedBy && data.craftedBy.length) {
+										ul(1, ["item-crafting"]);
+											li(1);
+												html += "Crafted By: ";
+												span(1, ["value"]);
+													html += "Blacksmith";
+												span(0);
+											li(0);
+											li(1, ["indent"]);
+												span(1, ["d3-color-orange"]);
+													html += "Plan: " + data.craftedBy[0].name;
+												span(0);
+											li(0);
+										ul(0);
+									}
+									span(1,["clear"]);
+										html += "<!-- -->";
+									span(0);
+								div(0);
 							div(0);
 						div(0);
 
@@ -555,9 +626,11 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 
 		function parseAttributes(node,name) {
 			if (node.length > 0) {
-				p(1,["item-property-category"]);
-					html += name;
-				p(0);
+				if (name !== "Passive") {
+					p(1,["item-property-category"]);
+						html += name;
+					p(0);
+				}
 				li(1,[],["list-style:none","display:inline"]);
 					for (var e in node) {
 						if (typeof node[e] === 'undefined') continue;
@@ -571,10 +644,31 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 			}
 		}
 
-		function parseSetAttributes(node) {
+		function parseGems(node) {
+			if (node.length > 0) {
+				for (var e in node) {
+					var socketIsFull = "item" in node[e] && Object.keys(node[e]).length;
+					var type = node[e].isGem ? "gem" : "jewel";
+					var color = socketIsFull ? "d3-color-white" : "d3-color-blue";
+
+					li(1,[color, socketIsFull ? "full-socket" : "empty-socket"]);
+						if (socketIsFull) {
+							html += "<img class=\"" + type + "\" src=\"" + mediaPrefixSmall + node[e].item.icon + ".png\"/>";
+							span(1, ["socket-effect"]);
+								html += node[e].attributes.primary[0].text;
+							span(0);
+						} else {
+							html += "Empty Socket";
+						}
+					li(0);
+				}
+			}
+		}
+
+		function parseSetAttributes(node,color) {
 			if (node.length > 0) {
 				for (var n in node) {
-					li(1,["d3-color-gray","item-itemset-bonus-desc","indent"]);
+					li(1,[color,"item-itemset-bonus-desc","indent"]);
 					//li(1,["d3-color-"+node[n].color,"item-itemset-bonus-desc","indent"]);
 						html += node[n].text.replace(/(\+?\d+.\d+%?|\+?\d+%?)/g, "<span class=\"value\">$1</span>");
 					li(0);
@@ -588,6 +682,7 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 		function li(state,classes) {state == 1 ? startTag("li",classes) : endTag("li");}
 		function h3(state,classes) {state == 1 ? startTag("h3",classes) : endTag("h3");}
 		function p(state,classes) {state == 1 ? startTag("p",classes) : endTag("p");}
+		function br() {html += "<br/>";}
 
 		function startTag(tag,classes,style) {
 			var t = "<" + tag;
@@ -643,7 +738,7 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 			return document.createElement(nodeName);
 		},
 
-		getScript: function(url) {
+		getScript: function(url, stats) {
 			var script = $.create('script');
 			script.type = 'text/javascript';
 
@@ -657,6 +752,7 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 		    xmlhttp.onreadystatechange = function() {
 		        if (xmlhttp.readyState == 4 ) {
 		           if(xmlhttp.status == 200 || xmlhttp.status == 0) {
+		           		console.log(xmlhttp.responseText);
 		           		var scriptText = Bnet.D3.TooltipConstructor.Get(JSON.parse(xmlhttp.responseText));
 		           		script.text = scriptText;
 		                document.body.appendChild(script);
@@ -884,8 +980,11 @@ if(typeof Bnet.D3.Tooltips == 'undefined') Bnet.D3.Tooltips = new function() { /
 
 		function reveal(x, y) {
 
-			tooltipWrapper.style.left = x + 'px';
-			tooltipWrapper.style.top  = y + 'px';
+			// tooltipWrapper.style.left = x + 'px';
+			// tooltipWrapper.style.top  = y + 'px';
+
+			tooltipWrapper.style.left = '25px';
+			tooltipWrapper.style.top  = '25px';
 
 			tooltipWrapper.style.visibility = 'visible';
 		}
